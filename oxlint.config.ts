@@ -123,6 +123,7 @@ const pkg = (name: string) => [name, `${name}/**`];
 const LIBS = {
   drizzle: pkg('drizzle-orm'),
   zod: pkg('zod'),
+  outbox: pkg('@nestjs/outbox'),
   nestCommon: pkg('@nestjs/common'),
 };
 
@@ -131,12 +132,12 @@ const LIBS = {
 // A group with an empty `allow` may import no external code at all.
 const EXTERNAL_RULES: { from: object[]; allow: string[]; core?: boolean }[] = [
   // Feature layers
-  { from: [f('api')], allow: [] },
+  { from: [f('api')], allow: [...LIBS.zod] },
   { from: [f('impl')], allow: [...LIBS.zod, ...LIBS.drizzle] },
   { from: [f('http'), f('ws')], allow: [...LIBS.zod, ...LIBS.nestCommon] },
 
   // Layer shared: same restrictions as the matching feature layer
-  { from: [sharedLayer('api')], allow: [] },
+  { from: [sharedLayer('api')], allow: [...LIBS.outbox, ...LIBS.zod] },
   { from: [sharedLayer('impl')], allow: [...LIBS.zod, ...LIBS.drizzle] },
   {
     from: [sharedLayer('http'), sharedLayer('ws')],
@@ -374,6 +375,10 @@ export default defineConfig({
 
     'typescript/no-explicit-any': 'off',
     'typescript/no-floating-promises': 'error',
+    'no-unused-vars': [
+      'error',
+      { fix: { imports: 'safe-fix', variables: 'off' } },
+    ],
   },
 
   categories: { correctness: 'error' },

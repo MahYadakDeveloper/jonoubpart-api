@@ -1,9 +1,10 @@
+import { Body, Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
+import { z } from 'zod';
+
 import { type AuthenticatedUser } from '@feature/authentication-api';
 import { AuthenticationGuard, User } from '@feature/authentication-nest';
 import { CheckPolicies, PoliciesGuard } from '@feature/authorization-nest';
-import { Body, Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
-import { z } from 'zod';
-import { OrderService } from './order.service';
+
 import { orderSettingsSchema, type OrderSettings } from './order.settings';
 import { CancelOrderPolicy } from './policies/cancel-order-policy.handler';
 import { ManageOrderSettingsPolicy } from './policies/manage-settings-policy.handler';
@@ -17,7 +18,7 @@ import {
 
 @Controller('order')
 export class OrderController {
-  constructor(private readonly orderService: OrderService) {}
+  constructor(private readonly order: OrderApi) {}
 
   /*
    * [NOTE]
@@ -38,13 +39,12 @@ export class OrderController {
     handlers: [ReadOrderPolicy],
   })
   @Get(':id')
-  getOrder(@Param('id', { schema: z.object({}) }) orderId: string) {
-    return this.orderService.findById({ orderId }).then(({ order }) => order);
+  getOrderById(@Param('id', { schema: z.object({}) }) orderId: string) {
+    return this.order.getById({ orderId }).then(({ order }) => order);
   }
 
-  listOrder() {
-
-  }
+  @Get()
+  listOrders() {}
 
   @UseGuards(AuthenticationGuard, PoliciesGuard)
   @CheckPolicies({
@@ -56,18 +56,19 @@ export class OrderController {
     @Body({ schema: recordOrderSchema }) body: RecordOrderType,
     @User() user: Extract<AuthenticatedUser, { role: 'customer' }>,
   ) {
-    return this.orderService.recordOrder({
-      customerId: user.id,
-      items: body.items,
-      recipient: {
-        ...body.recipient,
-        customer: {
-          id: user.id,
-          contact: {
-            ...user,
-          },
-        },
-      },
+    return this.order.place({
+      // paymentGetawayId: ,//__
+      // customerId: user.id,
+      // items: body.items,
+      // recipient: {
+      //   ...body.recipient,
+      //   customer: {
+      //     id: user.id,
+      //     contact: {
+      //       ...user,
+      //     },
+      //   },
+      // },
     });
   }
 
