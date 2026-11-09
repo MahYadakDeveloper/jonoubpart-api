@@ -56,6 +56,11 @@
  *   values. They are published as events (see `WarehouseEvent`).
  */
 
+import {
+  CollectSource,
+  DispatchDestination,
+} from '@features/warehouse/delivery/api';
+
 /* -------------------------------------------------------------------------- */
 /*                                 PRIMITIVES                                 */
 /* -------------------------------------------------------------------------- */
@@ -113,102 +118,6 @@ export interface ItemAttributes {
 }
 
 /* -------------------------------------------------------------------------- */
-/*                        ADDRESSES AND PARTIES (SHIP / COLLECT)              */
-/* -------------------------------------------------------------------------- */
-
-export interface GeoPoint {
-  lat: number;
-  lng: number;
-}
-
-/**
- * Address of a customer: free text plus, usually, a map location that couriers
- * can navigate to. The location is optional because some addresses are only
- * known as text.
- */
-export interface CustomerAddress {
-  text: string;
-  location?: GeoPoint;
-}
-
-/**
- * Address of a freight company (carrier) branch or terminal: where a package is
- * handed over to the carrier (ship) or taken from it (collect). Carriers are
- * identified by a plain text address only; there is no geo point.
- */
-export type CarrierAddress = string;
-
-/**
- * The person who receives a package in person, either from a courier at their
- * address or at the warehouse terminal.
- *
- * `verificationCode` protects against handing a package to the wrong person:
- * the recipient must present it. The CALLER creates it (it also needs to tell
- * the customer), and the warehouse only verifies it.
- */
-export interface CustomerRecipient {
-  name: string;
-  phone: string;
-  verificationCode: string;
-}
-
-/**
- * The person who hands goods over (collect from a customer). Identity only; no
- * verification code is needed to receive goods from someone.
- */
-export interface CustomerSender {
-  name: string;
-  phone: string;
-}
-
-/**
- * The FINAL receiver of cargo sent through a freight company: exactly the data
- * the carrier needs to issue a waybill when the package is handed to it. This
- * is NOT the carrier itself (the carrier is `CarrierAddress`).
- */
-export interface FreightConsignee {
-  name: string;
-  mobile: string;
-  province: string;
-  city: string;
-  postalCode: string;
-}
-
-/**
- * Where an outbound package goes. The `kind` decides the shape of the address
- * and of the person together, so invalid combinations (e.g. a customer with a
- * postal code, a carrier with a verification code) cannot be expressed.
- *
- * - `customer`: our delivery takes the package to the customer's address; the
- *   recipient proves identity with the verification code.
- * - `freight`: our delivery takes the package to the carrier; the consignee data
- *   is what the carrier needs to forward it. No verification code.
- * - `pickup`: no delivery at all. The package waits at the warehouse terminal
- *   (see `packages` and `handOver`) until the recipient comes and presents the
- *   verification code.
- */
-export type ShipDestination =
-  | { kind: 'customer'; address: CustomerAddress; recipient: CustomerRecipient }
-  | {
-      kind: 'freight';
-      carrierAddress: CarrierAddress;
-      consignee: FreightConsignee;
-    }
-  | { kind: 'pickup'; recipient: CustomerRecipient };
-
-/**
- * Where an inbound package is collected from.
- *
- * - `customer`: our delivery fetches goods from a customer's address (for example
- *   a customer return). Only the sender's identity is needed.
- * - `freight`: our delivery fetches goods from a carrier's branch. The carrier's
- *   waybill number is optional and, when present, helps match the arrival.
- */
-export type CollectSource =
-  | { kind: 'customer'; address: CustomerAddress; sender: CustomerSender }
-  | { kind: 'freight'; carrierAddress: CarrierAddress; waybillNumber?: string };
-
-/* -------------------------------------------------------------------------- */
 /*                         STOCK AND MOVEMENT COMMANDS                        */
 /* -------------------------------------------------------------------------- */
 
@@ -217,7 +126,7 @@ export type CollectSource =
  * Reserved stock is not available to others but is still physically here. Fails
  * (and reserves nothing) if any line lacks enough available stock.
  */
-export interface ReserveCommand extends WarehouseScoped {
+export interface ReserveCommand {
   /**
    * Unique per warehouse. Later `release` and `ship` refer to the reservation
    * by it.
@@ -230,8 +139,13 @@ export interface ReserveCommand extends WarehouseScoped {
  * Cancels a reservation and makes the stock available again. Releasing an
  * unknown or already released/shipped reference has no effect.
  */
-export interface ReleaseCommand extends WarehouseScoped {
+export interface ReleaseCommand {
   referenceId: string;
+}
+
+export interface PickupReciepent {
+  name: string;
+  phone: string;
 }
 
 /**
@@ -247,10 +161,23 @@ export interface ReleaseCommand extends WarehouseScoped {
  *   `package.delivery-failed` (for delivery destinations) or by `handOver` (for
  *   `pickup`).
  */
-export interface ShipCommand extends WarehouseScoped {
+export interface ShipCommand {
   referenceId: string;
   lines: Line[];
-  destination: ShipDestination;
+  destination:
+    | DispatchDestination
+    | {
+        kind: 'pickup';
+        /**
+         * The person who receives a package in person, either from a courier at
+         * their address or at the warehouse terminal.
+         *
+         * `verificationCode` protects against handing a package to the wrong
+         * person: the recipient must present it. The CALLER creates it (it also
+         * needs to tell the customer), and the warehouse only verifies it.
+         */
+        recipient: { name: string; phone: string; verificationCode: string };
+      };
 }
 
 /**
@@ -260,7 +187,7 @@ export interface ShipCommand extends WarehouseScoped {
  * lines. When the goods arrive they are matched by `referenceId` (event
  * `package.arrived`) and must then be checked in (`checkIn`).
  */
-export interface CollectCommand extends WarehouseScoped {
+export interface CollectCommand {
   referenceId: string;
   lines: Line[];
   source: CollectSource;

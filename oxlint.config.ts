@@ -177,6 +177,13 @@ const policies = [
   })),
 
   // =========================================================================
+  // api: its own package (see "Same package" above) plus the api (index.ts
+  // only) of the direct child modules. No siblings, no parent, no
+  // grandchildren.
+  // =========================================================================
+  { from: f('api'), allow: { to: CHILD_APIS } },
+
+  // =========================================================================
   // impl / http / ws: the api (index.ts only) of
   //   - their own module
   //   - the direct child modules

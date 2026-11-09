@@ -49,8 +49,18 @@
   "js/ts.updateImportsOnPaste.enabled": false,
   "js/ts.updateImportsOnFileMove.enabled": "never",
 
-  "js/ts.preferences.autoImportFileExcludePatterns": [
-    "**/features/*/*/src/!(index).ts"
-  ],
-  "js/ts.preferences.importModuleSpecifier": "non-relative"
+  // "js/ts.preferences.autoImportFileExcludePatterns": [
+  //   "**/features/**/{api,impl,http,ws}/**/!(index).ts"
+  // ],
+  "js/ts.preferences.importModuleSpecifier": "non-relative",
+  "js/ts.preferences.autoImportSpecifierExcludeRegexes": [
+    // relative که وارد پوشه‌ی لایه‌ی یک ماژول دیگر می‌شود (../x/api/..., ../../x/y/impl/...)
+    "^(\\.\\./)+([^/]+/)*(api|impl|http|ws)(/.*)?$",
+
+    // alias: هر چیزی داخل پکیج یک لایه، به‌جز خود ریشه یا index
+    "^@features/.+/(api|impl|http|ws)/(?!index(\\.[jt]s)?$).+$",
+    "^@shared/(api|impl|http|ws)/(?!index(\\.[jt]s)?$).+$",
+    "^@shared/[^/]+/.+$",
+    "^@infrastructure/[^/]+/.+$"
+  ]
 }
