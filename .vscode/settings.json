@@ -49,16 +49,20 @@
   "js/ts.updateImportsOnPaste.enabled": false,
   "js/ts.updateImportsOnFileMove.enabled": "never",
 
-  // "js/ts.preferences.autoImportFileExcludePatterns": [
-  //   "**/features/**/{api,impl,http,ws}/**/!(index).ts"
-  // ],
   "js/ts.preferences.importModuleSpecifier": "non-relative",
+
+  // Auto-import must only offer the public entry point of a layer package:
+  //   @<group>/<feature>[/<submodule>...]/<layer>   (never a deeper file)
+  // The group list below must match the aliases in tsconfig.json
+  // (commerce|logistics|payments|finance|platform|iam).
   "js/ts.preferences.autoImportSpecifierExcludeRegexes": [
-    // relative که وارد پوشه‌ی لایه‌ی یک ماژول دیگر می‌شود (../x/api/..., ../../x/y/impl/...)
+    // Relative paths that reach into a layer folder
     "^(\\.\\./)+([^/]+/)*(api|impl|http|ws)(/.*)?$",
 
-    // alias: هر چیزی داخل پکیج یک لایه، به‌جز خود ریشه یا index
-    "^@features/.+/(api|impl|http|ws)/(?!index(\\.[jt]s)?$).+$",
+    // Feature layers: anything below <layer>/ except its index
+    "^@(commerce|logistics|payments|finance|platform|iam)/.+/(api|impl|http|ws)/(?!index(\\.[jt]s)?$).+$",
+
+    // Shared and infrastructure: anything below the first-level module
     "^@shared/(api|impl|http|ws)/(?!index(\\.[jt]s)?$).+$",
     "^@shared/[^/]+/.+$",
     "^@infrastructure/[^/]+/.+$"

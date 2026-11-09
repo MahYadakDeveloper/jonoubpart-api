@@ -1,10 +1,49 @@
 {
   "compilerOptions": {
     "paths": {
-      "@features/*/api": ["./features/*/api/index.ts"],
-      "@features/*/impl": ["./features/*/impl/index.ts"],
-      "@features/*/http": ["./features/*/http/index.ts"],
-      "@features/*/ws": ["./features/*/ws/index.ts"],
+      // Feature aliases: one block per group, one entry per layer.
+      // Layout: features/<group>/<feature>/<submodule>/.../<layer>/index.ts
+      // Usage:  @<group>/<feature>[/<submodule>...]/<layer>
+      //         e.g. @store/order/api, @store/order/cart/impl
+      // `*` may span several segments, so nested submodules are covered.
+      // A new group needs 4 entries here plus its name in the
+      // autoImportSpecifierExcludeRegexes of settings.json.
+
+      // commerce
+      "@commerce/*/api": ["./features/commerce/*/api/index.ts"],
+      "@commerce/*/impl": ["./features/commerce/*/impl/index.ts"],
+      "@commerce/*/http": ["./features/commerce/*/http/index.ts"],
+      "@commerce/*/ws": ["./features/commerce/*/ws/index.ts"],
+
+      // logistics
+      "@logistics/*/api": ["./features/logistics/*/api/index.ts"],
+      "@logistics/*/impl": ["./features/logistics/*/impl/index.ts"],
+      "@logistics/*/http": ["./features/logistics/*/http/index.ts"],
+      "@logistics/*/ws": ["./features/logistics/*/ws/index.ts"],
+
+      // payments
+      "@payments/*/api": ["./features/payments/*/api/index.ts"],
+      "@payments/*/impl": ["./features/payments/*/impl/index.ts"],
+      "@payments/*/http": ["./features/payments/*/http/index.ts"],
+      "@payments/*/ws": ["./features/payments/*/ws/index.ts"],
+
+      // finance
+      "@finance/*/api": ["./features/finance/*/api/index.ts"],
+      "@finance/*/impl": ["./features/finance/*/impl/index.ts"],
+      "@finance/*/http": ["./features/finance/*/http/index.ts"],
+      "@finance/*/ws": ["./features/finance/*/ws/index.ts"],
+
+      // platform
+      "@platform/*/api": ["./features/platform/*/api/index.ts"],
+      "@platform/*/impl": ["./features/platform/*/impl/index.ts"],
+      "@platform/*/http": ["./features/platform/*/http/index.ts"],
+      "@platform/*/ws": ["./features/platform/*/ws/index.ts"],
+
+      // iam
+      "@iam/*/api": ["./features/iam/*/api/index.ts"],
+      "@iam/*/impl": ["./features/iam/*/impl/index.ts"],
+      "@iam/*/http": ["./features/iam/*/http/index.ts"],
+      "@iam/*/ws": ["./features/iam/*/ws/index.ts"],
 
       "@shared/*": ["./shared/*/index.ts"],
       "@infrastructure/*": ["./infrastructure/*/index.ts"]
