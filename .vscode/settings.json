@@ -57,10 +57,13 @@
   // (commerce|logistics|payments|finance|platform|iam).
   "js/ts.preferences.autoImportSpecifierExcludeRegexes": [
     // Relative paths that reach into a layer folder
-    "^(\\.\\./)+([^/]+/)*(api|impl|http|ws)(/.*)?$",
+    "^(\\.\\./)+([^/]+/)*(api|impl|http|ws|schema)(/.*)?$",
 
     // Feature layers: anything below <layer>/ except its index
-    "^@(commerce|logistics|payments|finance|platform|iam)/.+/(api|impl|http|ws)/(?!index(\\.[jt]s)?$).+$",
+    "^@(commerce|logistics|payments|finance|platform|iam)/.+/(api|impl|http|ws|schema)/(?!index(\\.[jt]s)?$).+$",
+
+    // Group schema: only the entry point @<group>/schema, nothing deeper
+    "^@(commerce|logistics|payments|finance|platform|iam)/schema/.+$",
 
     // Shared and infrastructure: anything below the first-level module
     "^@shared/(api|impl|http|ws)/(?!index(\\.[jt]s)?$).+$",

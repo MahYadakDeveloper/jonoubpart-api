@@ -17,11 +17,22 @@ const APPS = 'apps';
 // So a module path always starts with "<group>/<feature>" (e.g. "store/order")
 // and may continue with submodules (e.g. "store/order/cart").
 //
-// The same names are also used for the layer folders of shared:
+// Code layers. The same names are also used for the layer folders of shared:
 // shared/<layer>/... (e.g. shared/impl/types, shared/impl/utils)
-const LAYERS = ['api', 'impl', 'http', 'ws'] as const;
+const CODE_LAYERS = ['api', 'impl', 'http', 'ws'] as const;
+
+// Layers of a feature module: the code layers plus `schema` (the Drizzle
+// tables of the module). `schema` exists only in features, not in shared, and
+// it has no public entry point: any file of it can be imported where allowed.
+//   - schema -> schema of ANY module (free, e.g. for foreign keys)
+//   - api, impl, http, ws -> schema of their OWN module only
+// A module schema must not re-export the schema of another module; that is
+// not an import rule, it is checked by the schema/no-foreign-schema-export
+// rule (.tools/oxlint-plugins/schema.mjs).
+const LAYERS = [...CODE_LAYERS, 'schema'] as const;
 
 type Layer = (typeof LAYERS)[number];
+type CodeLayer = (typeof CODE_LAYERS)[number];
 type Captured = Record<string, string | string[]>;
 
 // Module path of the importing file, e.g. "store/order" for
@@ -35,6 +46,15 @@ const OWN = '{{ from.file.captured.modulePath }}';
 // feature the sibling pattern below matches the other features of the same
 // group, which is already covered by the TOP_LEVEL policy.
 const PARENT = '{{ from.file.captured.parentPath }}';
+
+// Group schema: features/<group>/schema/index.ts
+// One shared schema package per group (shared tables, table-building helpers,
+// ...). It is NOT a feature module and has no layers. It may be imported
+// through its public entry point (index.ts) only by the schema layer of every
+// module of the SAME group (nested submodules too), and by nobody else. The
+// group schema itself may import only its own files (plus drizzle-orm).
+// Because of this the name "schema" is reserved: a group cannot have a
+// feature called "schema".
 
 // Files of a category, optionally limited by captured values
 const file = (category: string, captured?: Captured) => ({
@@ -78,6 +98,35 @@ const ANY_FEATURE = {
 };
 const ANY_IMPL = e('impl');
 
+// Schema layer of a module. Files of a group schema (features/<group>/schema)
+// also get the `schema` category, but their modulePath is only "<group>" (one
+// segment), so MODULE_SCHEMA requires at least two segments ("<group>/<feature>"
+// and deeper) to match module schemas only.
+const MODULE_SCHEMA = f('schema', { modulePath: '*/**' });
+// Schema of the module the importing file belongs to
+const OWN_SCHEMA = f('schema', { modulePath: OWN });
+
+// Group schema element (any group) and its entry point in the same group as
+// the importing file. The capture is called `schemaGroup` (not `group`, which
+// the feature element uses) so it can be told apart in violation messages.
+const GROUP_SCHEMA = { element: { type: 'group-schema' } };
+
+const SAME_GROUP_SCHEMA_ENTRY = {
+  element: {
+    type: 'group-schema',
+    captured: { schemaGroup: '{{ from.element.captured.group }}' },
+  },
+  file: { categories: 'group-schema-entry' },
+};
+
+// Files of the same group schema as the importing group schema file
+const OWN_GROUP_SCHEMA = {
+  element: {
+    type: 'group-schema',
+    captured: { schemaGroup: '{{ from.element.captured.schemaGroup }}' },
+  },
+};
+
 // ---------------------------------------------------------------------------
 // App and infrastructure helpers
 // ---------------------------------------------------------------------------
@@ -90,13 +139,6 @@ const SAME_APP = {
 };
 
 const ANY_INFRASTRUCTURE = { element: { type: 'infrastructure' } };
-
-const SAME_INFRASTRUCTURE_ROOT = {
-  element: {
-    type: 'infrastructure',
-    captured: { root: '{{ from.element.captured.root }}' },
-  },
-};
 
 // ---------------------------------------------------------------------------
 // Shared helpers
@@ -113,12 +155,13 @@ const shared = (name: string | string[]) => ({
 
 const ANY_SHARED = { element: { type: 'shared' } };
 
-// shared/<layer>: only the matching feature layer may use it
-const sharedLayer = (layer: Layer) => shared(layer);
+// shared/<layer>: the matching feature layer may use it (impl may also use
+// shared/api, see the policies)
+const sharedLayer = (layer: CodeLayer) => shared(layer);
 
 // Every shared module whose name is NOT a layer name. `!(a|b)` is a micromatch
 // extglob applied to the captured name ("types" matches, "impl" does not).
-const COMMON_SHARED = shared(`!(${LAYERS.join('|')})`);
+const COMMON_SHARED = shared(`!(${CODE_LAYERS.join('|')})`);
 
 // ---------------------------------------------------------------------------
 // External packages and node built-ins
@@ -148,15 +191,19 @@ const LIBS = {
 const EXTERNAL_RULES: { from: object[]; allow: string[]; core?: boolean }[] = [
   // Feature layers
   { from: [f('api')], allow: [...LIBS.zod] },
-  { from: [f('impl')], allow: [...LIBS.zod, ...LIBS.drizzle] },
+  { from: [f('impl')], allow: [...LIBS.zod, ...LIBS.drizzle, ...LIBS.outbox] },
   { from: [f('http'), f('ws')], allow: [...LIBS.zod, ...LIBS.nestCommon] },
+  { from: [MODULE_SCHEMA], allow: [...LIBS.drizzle] },
+
+  // Group schema: table definitions and helpers
+  { from: [GROUP_SCHEMA], allow: [...LIBS.drizzle] },
 
   // Layer shared: same restrictions as the matching feature layer
   { from: [sharedLayer('api')], allow: [...LIBS.outbox, ...LIBS.zod] },
   { from: [sharedLayer('impl')], allow: [...LIBS.zod, ...LIBS.drizzle] },
   {
     from: [sharedLayer('http'), sharedLayer('ws')],
-    allow: [...LIBS.zod, ...LIBS.nestCommon],
+    allow: [...LIBS.zod, ...LIBS.nestCommon, ...LIBS.drizzle],
   },
 
   // Common shared (formerly types/utils)
@@ -172,7 +219,8 @@ const EXTERNAL_RULES: { from: object[]; allow: string[]; core?: boolean }[] = [
 const describe = (side: 'from' | 'to') =>
   `{{#if ${side}.file.captured.modulePath}}${FEATURES}/{{ ${side}.file.captured.modulePath }}` +
   `{{else}}{{ ${side}.element.types.[0] }} {{ ${side}.element.captured.root }}` +
-  `{{ ${side}.element.captured.name }}{{ ${side}.element.captured.app }}{{/if}}`;
+  `{{ ${side}.element.captured.name }}{{ ${side}.element.captured.app }}` +
+  `{{ ${side}.element.captured.schemaGroup }}{{/if}}`;
 
 const MESSAGE =
   `${describe('from')} must not import ` +
@@ -219,13 +267,43 @@ const policies = [
   ]),
 
   // =========================================================================
-  // Feature layer -> shared/<same layer>, and nothing else in shared.
-  // (api -> shared/api, impl -> shared/impl, http -> shared/http,
-  //  ws -> shared/ws). Common shared is NOT directly reachable from features.
+  // Schema access:
+  //  - api, impl, http and ws: the schema of their OWN module (any file). Not
+  //    the schema of child modules, siblings, the parent or other features.
+  //  - module schema: any file of the schema of ANY module (free)
   // =========================================================================
-  ...LAYERS.map((layer) => ({
+  ...CODE_LAYERS.map((layer) => ({
+    from: f(layer),
+    allow: { to: OWN_SCHEMA },
+  })),
+  { from: MODULE_SCHEMA, allow: { to: MODULE_SCHEMA } },
+
+  // =========================================================================
+  // Group schema (entry point only, same group only):
+  //  - module schema of every module of the group, nested submodules included
+  //  - the group schema itself may import only its own files
+  // =========================================================================
+  { from: MODULE_SCHEMA, allow: { to: SAME_GROUP_SCHEMA_ENTRY } },
+  { from: GROUP_SCHEMA, allow: { to: OWN_GROUP_SCHEMA } },
+
+  // =========================================================================
+  // Feature layer -> shared:
+  //  - every layer: shared/<same layer> (api -> shared/api, impl -> shared/impl,
+  //    http -> shared/http, ws -> shared/ws)
+  //  - impl additionally: shared/api
+  //  - impl, http, ws additionally: common shared (every shared module whose
+  //    name is not a layer name, e.g. shared/types, shared/utils)
+  //  - api: shared/api ONLY (no common shared)
+  // schema has no shared counterpart (schema -> no shared at all).
+  // =========================================================================
+  ...CODE_LAYERS.map((layer) => ({
     from: f(layer),
     allow: { to: sharedLayer(layer) },
+  })),
+  { from: f('impl'), allow: { to: sharedLayer('api') } },
+  ...(['impl', 'http', 'ws'] as const).map((layer) => ({
+    from: f(layer),
+    allow: { to: COMMON_SHARED },
   })),
 
   // =========================================================================
@@ -238,11 +316,12 @@ const policies = [
   },
 
   // =========================================================================
-  // Infrastructure: its own root, shared, and every nested feature impl
+  // Infrastructure: any infrastructure module (free access between roots),
+  // shared, and every nested feature impl
   // =========================================================================
   {
     from: { element: { type: 'infrastructure' } },
-    allow: { to: [SAME_INFRASTRUCTURE_ROOT, ANY_SHARED, ANY_IMPL] },
+    allow: { to: [ANY_INFRASTRUCTURE, ANY_SHARED, ANY_IMPL] },
   },
 
   // =========================================================================
@@ -257,7 +336,7 @@ const policies = [
     from: { element: { type: 'shared' } },
     allow: { to: shared('{{ from.element.captured.name }}') },
   },
-  { from: shared([...LAYERS]), allow: { to: COMMON_SHARED } },
+  { from: shared([...CODE_LAYERS]), allow: { to: COMMON_SHARED } },
 
   // =========================================================================
   // External packages (the last matching policy wins): free everywhere,
@@ -289,6 +368,7 @@ export default defineConfig({
     { name: 'boundaries', specifier: 'eslint-plugin-boundaries' },
     { name: 'impl', specifier: './.tools/oxlint-plugins/impl.mjs' },
     { name: 'nest', specifier: './.tools/oxlint-plugins/nest.mjs' },
+    { name: 'schema', specifier: './.tools/oxlint-plugins/schema.mjs' },
   ],
 
   settings: {
@@ -315,6 +395,15 @@ export default defineConfig({
         pattern: `${APPS}/*`,
         partialMatch: false,
         capture: ['app'],
+      },
+      // features/<group>/schema: one element per group. It must be listed
+      // BEFORE the feature element, because features/*/* also matches
+      // features/<group>/schema.
+      {
+        type: 'group-schema',
+        pattern: `${FEATURES}/*/schema`,
+        partialMatch: false,
+        capture: ['schemaGroup'],
       },
       // features/<group>/<feature>: one element per top-level feature.
       // Everything nested below it (submodules, layers) belongs to it.
@@ -354,16 +443,22 @@ export default defineConfig({
         capture: ['modulePath'],
       })),
 
-      // Public entry point of every layer package:
+      // Public entry point of every code layer package (schema has none):
       // features/<modulePath>/<layer>/index.ts
-      ...LAYERS.map((layer) => ({
+      ...CODE_LAYERS.map((layer) => ({
         pattern: `${FEATURES}/**/${layer}/index.ts`,
         category: `${layer}-entry`,
         capture: ['modulePath'],
       })),
 
-      // Any layer entry point (for app -> feature)
-      ...LAYERS.map((layer) => ({
+      // Public entry point of a group schema: features/<group>/schema/index.ts
+      {
+        pattern: `${FEATURES}/*/schema/index.ts`,
+        category: 'group-schema-entry',
+      },
+
+      // Any code layer entry point (for app -> feature)
+      ...CODE_LAYERS.map((layer) => ({
         pattern: `${FEATURES}/**/${layer}/index.ts`,
         category: 'entry',
       })),
@@ -373,7 +468,7 @@ export default defineConfig({
       // Only the first `**` is captured; the `*` is the module's own name.
       //   features/store/order/cart/impl -> parentPath "store/order"
       //   features/store/order/impl      -> parentPath "store" (the group)
-      ...LAYERS.map((layer) => ({
+      ...CODE_LAYERS.map((layer) => ({
         pattern: `${FEATURES}/**/*/${layer}/**`,
         category: layer,
         capture: ['parentPath'],
@@ -401,6 +496,9 @@ export default defineConfig({
     ],
 
     'boundaries/no-unknown-dependencies': 'error',
+
+    // A module schema must not re-export the schema of another module
+    'schema/no-foreign-schema-export': 'error',
 
     'typescript/no-explicit-any': 'off',
     'typescript/no-floating-promises': 'error',

@@ -6,7 +6,11 @@
       // Usage:  @<group>/<feature>[/<submodule>...]/<layer>
       //         e.g. @store/order/api, @store/order/cart/impl
       // `*` may span several segments, so nested submodules are covered.
-      // A new group needs 4 entries here plus its name in the
+      // Schema aliases (index.ts of the schema package):
+      //   @<group>/*/schema -> schema of a module or nested submodule
+      //                        e.g. @commerce/stock/schema
+      //   @<group>/schema   -> schema of the group (shared tables, helpers)
+      // A new group needs 6 entries here plus its name in the
       // autoImportSpecifierExcludeRegexes of settings.json.
 
       // commerce
@@ -14,36 +18,48 @@
       "@commerce/*/impl": ["./features/commerce/*/impl/index.ts"],
       "@commerce/*/http": ["./features/commerce/*/http/index.ts"],
       "@commerce/*/ws": ["./features/commerce/*/ws/index.ts"],
+      "@commerce/*/schema": ["./features/commerce/*/schema/index.ts"],
+      "@commerce/schema": ["./features/commerce/schema/index.ts"],
 
       // logistics
       "@logistics/*/api": ["./features/logistics/*/api/index.ts"],
       "@logistics/*/impl": ["./features/logistics/*/impl/index.ts"],
       "@logistics/*/http": ["./features/logistics/*/http/index.ts"],
       "@logistics/*/ws": ["./features/logistics/*/ws/index.ts"],
+      "@logistics/*/schema": ["./features/logistics/*/schema/index.ts"],
+      "@logistics/schema": ["./features/logistics/schema/index.ts"],
 
       // payments
       "@payments/*/api": ["./features/payments/*/api/index.ts"],
       "@payments/*/impl": ["./features/payments/*/impl/index.ts"],
       "@payments/*/http": ["./features/payments/*/http/index.ts"],
       "@payments/*/ws": ["./features/payments/*/ws/index.ts"],
+      "@payments/*/schema": ["./features/payments/*/schema/index.ts"],
+      "@payments/schema": ["./features/payments/schema/index.ts"],
 
       // finance
       "@finance/*/api": ["./features/finance/*/api/index.ts"],
       "@finance/*/impl": ["./features/finance/*/impl/index.ts"],
       "@finance/*/http": ["./features/finance/*/http/index.ts"],
       "@finance/*/ws": ["./features/finance/*/ws/index.ts"],
+      "@finance/*/schema": ["./features/finance/*/schema/index.ts"],
+      "@finance/schema": ["./features/finance/schema/index.ts"],
 
       // platform
       "@platform/*/api": ["./features/platform/*/api/index.ts"],
       "@platform/*/impl": ["./features/platform/*/impl/index.ts"],
       "@platform/*/http": ["./features/platform/*/http/index.ts"],
       "@platform/*/ws": ["./features/platform/*/ws/index.ts"],
+      "@platform/*/schema": ["./features/platform/*/schema/index.ts"],
+      "@platform/schema": ["./features/platform/schema/index.ts"],
 
       // iam
       "@iam/*/api": ["./features/iam/*/api/index.ts"],
       "@iam/*/impl": ["./features/iam/*/impl/index.ts"],
       "@iam/*/http": ["./features/iam/*/http/index.ts"],
       "@iam/*/ws": ["./features/iam/*/ws/index.ts"],
+      "@iam/*/schema": ["./features/iam/*/schema/index.ts"],
+      "@iam/schema": ["./features/iam/schema/index.ts"],
 
       "@shared/*": ["./shared/*/index.ts"],
       "@infrastructure/*": ["./infrastructure/*/index.ts"]
