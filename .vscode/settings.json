@@ -2,6 +2,7 @@
   "cSpell.words": [
     "azkivam",
     "bandar",
+    "barcodes",
     "Chamrun",
     "chargeback",
     "Codabar",
@@ -51,22 +52,31 @@
 
   "js/ts.preferences.importModuleSpecifier": "non-relative",
 
-  // Auto-import must only offer the public entry point of a layer package:
-  //   @<group>/<feature>[/<submodule>...]/<layer>   (never a deeper file)
-  // The group list below must match the aliases in tsconfig.json
+  // Auto-import must only offer the entry point of a package, never an
+  // internal file or an internal index.ts nested below it:
+  //   @<group>/<feature>[/<submodule>...]/<layer>   (layer index only)
+  //   @<group>/schema                               (group schema)
+  //   @shared/<name>, @infrastructure/<name>
+  // Settings are a regular submodule (<modulePath>/settings/<layer>), covered
+  // by the same rules. The group list must match the aliases in tsconfig.json
   // (commerce|logistics|payments|finance|platform|iam).
   "js/ts.preferences.autoImportSpecifierExcludeRegexes": [
-    // Relative paths that reach into a layer folder
+    // Relative paths that reach into a layer folder (use the alias instead)
     "^(\\.\\./)+([^/]+/)*(api|impl|http|ws|schema)(/.*)?$",
 
-    // Feature layers: anything below <layer>/ except its index
-    "^@(commerce|logistics|payments|finance|platform|iam)/.+/(api|impl|http|ws|schema)/(?!index(\\.[jt]s)?$).+$",
+    // Relative paths that reach into shared or infrastructure
+    "^(\\.\\./)+(shared|infrastructure)(/.*)?$",
+
+    // Feature layers: anything below <layer>/ (internal files and internal
+    // index.ts files), only @<...>/<layer> itself stays
+    "^@(commerce|logistics|payments|finance|platform|iam)/.+/(api|impl|http|ws|schema)/.+$",
 
     // Group schema: only the entry point @<group>/schema, nothing deeper
     "^@(commerce|logistics|payments|finance|platform|iam)/schema/.+$",
 
-    // Shared and infrastructure: anything below the first-level module
-    "^@shared/(api|impl|http|ws)/(?!index(\\.[jt]s)?$).+$",
+    // Shared and infrastructure: only @shared/<name> and
+    // @infrastructure/<name>; anything deeper (e.g. @shared/impl/types, which
+    // the `*` in the tsconfig alias would otherwise resolve) is excluded
     "^@shared/[^/]+/.+$",
     "^@infrastructure/[^/]+/.+$"
   ]

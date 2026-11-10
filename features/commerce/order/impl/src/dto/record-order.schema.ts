@@ -1,10 +1,11 @@
+import { z } from 'zod';
+
 import {
   InterCityRecipient,
   IntraCityRecipient,
 } from '@feature/order-delivery-api';
-import { z } from 'zod';
 
-export const recordOrderSchema = z.object({
+export const placeOrderSchema = z.object({
   customerId: z.uuid(),
   items: z
     .array(

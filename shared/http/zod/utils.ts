@@ -18,7 +18,6 @@ export function discriminatedVariants<
 
   type AnyVariant = z.ZodObject<{ [P in K]: z.ZodLiteral<V> } & z.ZodRawShape>;
 
-  // union مقدارهایی که در tuple پوشش داده شده‌اند
   type CoveredOf<T extends readonly AnyVariant[]> = T[number] extends infer U
     ? U extends z.ZodObject<infer Sh>
       ? Sh extends { [P in K]: z.ZodLiteral<infer L> }
@@ -41,12 +40,7 @@ export function discriminatedVariants<
     shape: S,
   ): z.ZodObject<
     Merge<Merge<B['shape'], D>, S & { [P in K]: z.ZodLiteral<R> }>
-  > =>
-    base.extend({
-      ...defaults,
-      ...shape,
-      [key]: z.literal(value),
-    }) as never;
+  > => base.extend({ ...defaults, ...shape, [key]: z.literal(value) }) as never;
 
   const build = <const T extends readonly [AnyVariant, ...AnyVariant[]]>(
     variants: T & Exhaustive<T>,

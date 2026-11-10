@@ -1,6 +1,6 @@
 import { commerceSchema } from '@commerce/schema';
 import { sql } from 'drizzle-orm';
-import { check, index, primaryKey, text, uuid } from 'drizzle-orm/pg-core';
+import { check, text, uuid } from 'drizzle-orm/pg-core';
 
 import { products } from './products.schema';
 
@@ -19,50 +19,31 @@ export const BARCODE_PATTERNS = {
   CODABAR: '^[A-D][0-9$:/.+-]{1,62}[A-D]$',
 } as const;
 
-export type BarcodeType = keyof typeof BARCODE_PATTERNS;
-export const BARCODE_TYPES = Object.keys(BARCODE_PATTERNS) as [
-  BarcodeType,
-  ...BarcodeType[],
-];
-
 export const BARCODE_CONSTRAINTS = {
-  barcodePk: 'barcodes_type_value_pk',
-  barcodeValueFormat: 'barcodes_value_format_chk',
+  barcodeFormat: 'barcodes_format_chk',
 } as const;
 
 // DDL constants only, never user input.
 const lit = (s: string) => sql.raw(`'${s.replaceAll("'", "''")}'`);
 
-export const barcodeType = commerceSchema.enum('barcode_type', BARCODE_TYPES);
-
-export const barcodes = commerceSchema.table(
-  'barcodes',
+export const codes = commerceSchema.table(
+  'product_codes',
   {
+    code: text('code').primaryKey(),
     productId: uuid('product_id')
-      .references(() => products.id, { onDelete: 'cascade' })
-      .notNull(),
-    type: barcodeType('type').notNull(),
-    value: text('raw_value').notNull(), // the only written column
+      .notNull()
+      .references(() => products.id, { onDelete: 'cascade' }),
   },
   (t) => [
-    primaryKey({
-      name: BARCODE_CONSTRAINTS.barcodePk,
-      columns: [t.type, t.value],
-    }),
-    index('barcodes_product_id_idx').on(t.productId),
     check(
-      BARCODE_CONSTRAINTS.barcodeValueFormat,
+      BARCODE_CONSTRAINTS.barcodeFormat,
       sql`
-        CASE ${t.type} ${sql.join(
-          Object.entries(BARCODE_PATTERNS).map(
-            ([type, pattern]) => sql`
-              WHEN ${lit(type)} THEN ${t.value} ~ ${lit(pattern)}
-            `,
+        (${sql.join(
+          Object.values(BARCODE_PATTERNS).map(
+            (pattern) => sql`${t.code} ~ ${lit(pattern)}`,
           ),
-          sql``,
-        )}
-          ELSE FALSE
-        END
+          sql` OR `,
+        )})
       `,
     ),
   ],

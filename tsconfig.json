@@ -4,7 +4,9 @@
       // Feature aliases: one block per group, one entry per layer.
       // Layout: features/<group>/<feature>/<submodule>/.../<layer>/index.ts
       // Usage:  @<group>/<feature>[/<submodule>...]/<layer>
-      //         e.g. @store/order/api, @store/order/cart/impl
+      //         e.g. @commerce/order/api, @commerce/order/cart/impl
+      // Every alias points at an index.ts: cross-package imports go through
+      // the entry point only (see the entry point rule in oxlint.config.ts).
       // `*` may span several segments, so nested submodules are covered.
       // Schema aliases (index.ts of the schema package):
       //   @<group>/*/schema -> schema of a module or nested submodule
